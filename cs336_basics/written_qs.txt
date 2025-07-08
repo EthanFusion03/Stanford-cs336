@@ -1,0 +1,20 @@
+Problem (unicode1)
+(a) chr(0) returns the null character ('\x00')
+
+(b) string representation is '\x00' while printed representation is just invisible, no output.
+
+(c) In Python, without print statement, chr(0) is will return the string representation, '\x00'.
+    On the other hand, the print statement will lead to extra spacing within the string.
+
+Problem (unicode2)
+(a) The reason may be that UTF-8 only has 256 vocab size while UTF-16 and UTF-32 have way more,
+    helping with computational efficiency. 
+    Also, UTF-8 avoids the frequent null bytes that  UTF-16 and UTF-32 produce for ASCII characters.
+
+(b) The example I give is 你好吗？and the reason I believe the decode function doesn't work
+    is that it treats every byte separately, which would work fine for unicode characters represented by one byte.
+    However, when a word is encoded into multiple bytes and they need to stick together to be decoded, this function no longer works.
+
+(c) "\xc1\x07"
+    Reason: The first byte must start with the binary pattern 110xxxxx.
+    The second byte (the "continuation byte") must start with the binary pattern 10xxxxxx.
