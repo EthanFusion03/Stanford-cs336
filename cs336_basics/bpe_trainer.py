@@ -1,6 +1,9 @@
 import regex as re
 import os
+import pickle
+import time
 import multiprocessing
+from tqdm import tqdm
 from dataclasses import dataclass
 from collections import defaultdict, Counter
 from typing import BinaryIO
@@ -65,11 +68,10 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]) -> BP
     Optimized BPE training using a doubly linked list and a cached counts dictionary.
     """
     assert vocab_size >= 256 + len(special_tokens), "vocab_size must be large enough to hold the base vocabulary and special tokens."
+    num_merges = max(vocab_size - 256 - len(special_tokens), 0)
     vocab: dict[int, bytes] = {x: bytes([x]) for x in range(256)}    # index -> bytes
     for i, special_token in enumerate(special_tokens):
         vocab[256 + i] = special_token.encode('utf-8')
-    # Next available ID for merged token
-    next_token_id = len(vocab)
 
     # --- Step 1: Parallel pre-tokenization ---
     num_processes = os.cpu_count() or 1
@@ -81,7 +83,7 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]) -> BP
     tasks = [(input_path, start, end, special_tokens) for start, end in zip(boundaries[:-1], boundaries[1:])]
 
     with multiprocessing.Pool(num_processes) as pool:
-        list_of_counts = pool.starmap(worker_process_chunk, tasks)
+        list_of_counts = pool.starmap(worker_process_chunk, tqdm(tasks, desc="Pretokenizing Chunks"))
 
     print("Aggregating results...")
     per_word_counts = Counter()
@@ -113,7 +115,7 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]) -> BP
     counts = get_pair_stats(word_freqs)
 
     # --- Step 4: Optimized Merging Loop ---
-    while vocab_size > len(vocab):
+    for i in tqdm(range(num_merges), desc="BPE Merges"):
         # Find the pair with the maximum counts and break tie using by choosing the one with greater lexiographical order
         # pair = max(counts, key=counts.get)
         # pair = max(counts, key=lambda p: (counts[p], p))
@@ -129,8 +131,7 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]) -> BP
         del counts[pair]
 
         # Update index, vocab, and merges
-        new_index = next_token_id
-        next_token_id += 1
+        new_index = len(vocab)
         vocab[new_index] = vocab[pair[0]] + vocab[pair[1]]
         merges.append((vocab[pair[0]], vocab[pair[1]]))
 
@@ -161,7 +162,7 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]) -> BP
 
                 node = node.next
 
-    return (vocab, merges)
+    return vocab, merges
 
 def find_chunk_boundaries(
     file: BinaryIO, 
@@ -211,22 +212,51 @@ def find_chunk_boundaries(
     # Make sure all boundaries are unique, but might be fewer than desired_num_chunks
     return sorted(set(chunk_boundaries))
 
+def train_bpe_tinystories():
+    input_file_path = "../data/TinyStoriesV2-GPT4-train.txt"
+    vocab_size = 10000
+    special_tokens = ["<|endoftext|>"]
+
+    # --- Start Training and Profiling ---
+    start_time = time.monotonic()
+
+    vocab, _ = train_bpe(input_file_path, vocab_size, special_tokens)
+
+    end_time = time.monotonic()
+    print(f"Training took: {end_time - start_time:.2f} seconds.")
+
+    # Find and print only the longest token
+    longest_token_bytes = max(vocab.values(), key=len)
+    print(f"Longest token has {len(longest_token_bytes)} bytes.")
+    print(f"Longest token: {longest_token_bytes.decode('utf-8', errors='ignore')}")
+
+def train_bpe_expts_owt():
+    input_file_path = "../data/owt_train.txt"
+    output_file = "../bpe_owt_params"
+    vocab_size = 32000
+    special_tokens = ["<|endoftext|>"]
+
+    # --- Start Training and Profiling ---
+    start_time = time.monotonic()
+
+    vocab, merges = train_bpe(input_file_path, vocab_size, special_tokens)
+
+    end_time = time.monotonic()
+    print(f"Training took: {end_time - start_time:.2f} seconds.")
+
+    # Serialize the vocabulary and merges to disk
+    params = BPETokenizerParams(vocab=vocab, merges=merges)
+    with open(output_file, "wb") as f:
+        pickle.dump(params, f)
+    print(f"Tokenizer parameters saved to {output_file}")
+
+    # Find and print only the longest token
+    longest_token_bytes = max(vocab.values(), key=len)
+    print(f"Longest token has {len(longest_token_bytes)} bytes.")
+    print(f"Longest token: {longest_token_bytes.decode('utf-8', errors='ignore')}")
+
 def main():
-    # test_string = '''
-    #     low low low low low
-    #     lower lower widest widest widest
-    #     newest newest newest newest newest newest
-    # '''
-    # params = train_bpe_from_text(test_string, num_merges=6)
-    # print("--- BPE Params after 1 merge ---")
-    # # The first merge should be ('s', 't') -> 115, 116
-    # # It should be assigned the new index 256.
-    # print(f"Merges: {params.merges}")
-    
-    # # The vocab for the new token 256 should be the bytes for 'st'
-    # print(f"Vocab for new tokens: {[item for item in params.vocab.items() if item[0] > 255]}")
-    # print(f"End of text token: {params.vocab[0]}")
-    print("NotImplemented")
+    train_bpe_tinystories()
 
 if __name__ == "__main__":
     main()
