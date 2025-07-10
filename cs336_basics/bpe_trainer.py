@@ -69,6 +69,8 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]) -> BP
     """
     assert vocab_size >= 256 + len(special_tokens), "vocab_size must be large enough to hold the base vocabulary and special tokens."
     num_merges = max(vocab_size - 256 - len(special_tokens), 0)
+
+    merges: list[tuple[bytes, bytes]] = []
     vocab: dict[int, bytes] = {x: bytes([x]) for x in range(256)}    # index -> bytes
     for i, special_token in enumerate(special_tokens):
         vocab[256 + i] = special_token.encode('utf-8')
@@ -93,8 +95,7 @@ def train_bpe(input_path: str, vocab_size: int, special_tokens: list[str]) -> BP
     # --- Step 2: Convert words to Doubly Linked Lists ---
     # word_freqs now maps the *head node* of a linked list to the word's frequency.
     print("Pre-tokenization complete. Starting BPE merges...")
-    merges: list[tuple[bytes, bytes]] = []
-    
+
     word_freqs = {}
     for word, freq in per_word_counts.items():
         byte_values = word.encode(encoding='utf-8')
