@@ -1,6 +1,6 @@
 import regex as re
 import os
-from cs336_basics.bpe_trainer import train_bpe
+from cs336_basics.bpe.bpe_trainer import train_bpe
 from typing import Iterator, Iterable
 class Tokenizer:
     def __init__(
