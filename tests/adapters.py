@@ -14,6 +14,8 @@ from cs336_basics.bpe.bpe_tokenizer import Tokenizer
 from cs336_basics.transformer.linear import Linear
 from cs336_basics.transformer.embedding import Embedding
 from cs336_basics.transformer.rmsnorm import Rmsnorm
+from cs336_basics.transformer.swiglu import swiglu
+from cs336_basics.transformer.rope import RotaryPositionalEmbedding
 
 
 
@@ -93,7 +95,7 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    raise NotImplementedError
+    return swiglu(d_model, d_ff, w1_weight, w2_weight, w3_weight, in_features)
 
 
 def run_scaled_dot_product_attention(
@@ -210,7 +212,8 @@ def run_rope(
     Returns:
         Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
     """
-    raise NotImplementedError
+    rope = RotaryPositionalEmbedding(theta, d_k, max_seq_len)
+    return rope.forward(in_query_or_key, token_positions)
 
 
 def run_transformer_block(
