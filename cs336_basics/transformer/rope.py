@@ -1,6 +1,6 @@
 import torch
 from einops import einsum, rearrange
-from torch import sin, cos, pow
+from torch import sin, cos
 
 class RotaryPositionalEmbedding(torch.nn.Module):
     def __init__(
