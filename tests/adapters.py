@@ -97,7 +97,11 @@ def run_swiglu(
     # swiglu.w1.weight.data = w1_weight
     # swiglu.w2.weight.data = w2_weight
     # swiglu.w3.weight.data = w3_weight
-    return swiglu(d_model, d_ff, w1_weight, w2_weight, w3_weight, in_features)
+    ffn_layer = swiglu(d_model, d_ff)
+    ffn_layer.w1.w = torch.nn.Parameter(w1_weight)
+    ffn_layer.w2.w = torch.nn.Parameter(w2_weight)
+    ffn_layer.w3.w = torch.nn.Parameter(w3_weight)
+    return ffn_layer(in_features)
 
 
 def run_scaled_dot_product_attention(
