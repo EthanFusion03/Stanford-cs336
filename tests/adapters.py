@@ -18,6 +18,7 @@ from cs336_basics.transformer.swiglu import swiglu
 from cs336_basics.transformer.rope import RotaryPositionalEmbedding
 from cs336_basics.transformer.softmax import softmax
 from cs336_basics.transformer.attention import scaled_dot_product_attention, MultiHeadSelfAttention
+from cs336_basics.transformer.transformer import prenorm_XformerBlock
 
 
 
@@ -305,7 +306,19 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    raise NotImplementedError
+    tfr_block = prenorm_XformerBlock(d_model, num_heads, d_ff, max_seq_len=max_seq_len, theta=theta)
+    tfr_block.attn_layer.load_state_dict({
+        'query.w': weights["attn.q_proj.weight"],
+        'key.w': weights["attn.k_proj.weight"],
+        'value.w': weights["attn.v_proj.weight"],
+        'output_layer.w': weights["attn.output_proj.weight"],
+    })
+    tfr_block.norm1.g = torch.nn.Parameter(weights["ln1.weight"])
+    tfr_block.norm2.g = torch.nn.Parameter(weights["ln2.weight"])
+    tfr_block.ffn_layer.w1.w = torch.nn.Parameter(weights["ffn.w1.weight"])
+    tfr_block.ffn_layer.w2.w = torch.nn.Parameter(weights["ffn.w2.weight"])
+    tfr_block.ffn_layer.w3.w = torch.nn.Parameter(weights["ffn.w3.weight"])
+    return tfr_block(in_features)
 
 
 def run_transformer_lm(
