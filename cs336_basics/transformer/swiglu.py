@@ -13,9 +13,9 @@ class swiglu(torch.nn.Module):
         super().__init__()
         self.d_model = d_model
         self.d_ff = d_ff
-        self.w1 = Linear(d_ff, d_model)
-        self.w2 = Linear(d_model, d_ff)
-        self.w3 = Linear(d_ff, d_model)
+        self.w1 = Linear(d_model, d_ff)
+        self.w2 = Linear(d_ff, d_model)
+        self.w3 = Linear(d_model, d_ff)
     
     def forward(self, x):
         # Step 1: w_1 * x

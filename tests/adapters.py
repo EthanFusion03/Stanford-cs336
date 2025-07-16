@@ -18,7 +18,7 @@ from cs336_basics.transformer.swiglu import swiglu
 from cs336_basics.transformer.rope import RotaryPositionalEmbedding
 from cs336_basics.transformer.softmax import softmax
 from cs336_basics.transformer.attention import scaled_dot_product_attention, MultiHeadSelfAttention
-from cs336_basics.transformer.transformer import prenorm_XformerBlock
+from cs336_basics.transformer.transformer import prenorm_XformerBlock, Xformer_LM
 
 
 
@@ -400,7 +400,33 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
+    lm = Xformer_LM(vocab_size, context_length, d_model, num_layers, num_heads, d_ff, rope_theta)
+    
+    # Adapt the weight names to match the lm's state_dict keys
+    adapted_weights = {
+        "emb_layer.emb_table": weights["token_embeddings.weight"],
+        "linear_layer.w": weights["lm_head.weight"],
+        "norm_layer.g": weights["ln_final.weight"],
+    }
+    for i in range(num_layers):
+        # Attention layer weights
+        adapted_weights[f"tfr_blocks.{i}.attn_layer.query.w"] = weights[f"layers.{i}.attn.q_proj.weight"]
+        adapted_weights[f"tfr_blocks.{i}.attn_layer.key.w"] = weights[f"layers.{i}.attn.k_proj.weight"]
+        adapted_weights[f"tfr_blocks.{i}.attn_layer.value.w"] = weights[f"layers.{i}.attn.v_proj.weight"]
+        adapted_weights[f"tfr_blocks.{i}.attn_layer.output_layer.w"] = weights[f"layers.{i}.attn.output_proj.weight"]
+        
+        # Normalization layer weights
+        adapted_weights[f"tfr_blocks.{i}.norm1.g"] = torch.nn.Parameter(weights[f"layers.{i}.ln1.weight"])
+        adapted_weights[f"tfr_blocks.{i}.norm2.g"] = torch.nn.Parameter(weights[f"layers.{i}.ln2.weight"])
+
+        # Feed-forward layer weights
+        adapted_weights[f"tfr_blocks.{i}.ffn_layer.w1.w"] = torch.nn.Parameter(weights[f"layers.{i}.ffn.w1.weight"])
+        adapted_weights[f"tfr_blocks.{i}.ffn_layer.w2.w"] = torch.nn.Parameter(weights[f"layers.{i}.ffn.w2.weight"])
+        adapted_weights[f"tfr_blocks.{i}.ffn_layer.w3.w"] = torch.nn.Parameter(weights[f"layers.{i}.ffn.w3.weight"])
+        
+    lm.load_state_dict(adapted_weights)  
+
+    return lm(in_indices)  
 
 
 def run_rmsnorm(
