@@ -21,6 +21,7 @@ from cs336_basics.transformer.attention import scaled_dot_product_attention, Mul
 from cs336_basics.transformer.transformer import prenorm_XformerBlock, Xformer_LM
 from cs336_basics.transformer.cross_entropy import cross_entropy
 from cs336_basics.transformer.AdamW import AdamW
+from cs336_basics.transformer.cos_lr import learning_rate_schedule
 
 
 
@@ -569,7 +570,7 @@ def run_get_lr_cosine_schedule(
     Returns:
         Learning rate at the given iteration under the specified schedule.
     """
-    raise NotImplementedError
+    return learning_rate_schedule(it, max_learning_rate, min_learning_rate, warmup_iters, cosine_cycle_iters)
 
 
 def run_save_checkpoint(
