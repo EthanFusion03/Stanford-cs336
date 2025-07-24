@@ -20,6 +20,7 @@ from cs336_basics.transformer.softmax import softmax
 from cs336_basics.transformer.attention import scaled_dot_product_attention, MultiHeadSelfAttention
 from cs336_basics.transformer.transformer import prenorm_XformerBlock, Xformer_LM
 from cs336_basics.transformer.cross_entropy import cross_entropy
+from cs336_basics.transformer.AdamW import AdamW
 
 
 
@@ -540,7 +541,7 @@ def get_adamw_cls() -> type[torch.optim.Optimizer]:
     """
     Returns a torch.optim.Optimizer that implements AdamW.
     """
-    raise NotImplementedError
+    return AdamW
 
 
 def run_get_lr_cosine_schedule(
