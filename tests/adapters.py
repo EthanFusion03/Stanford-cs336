@@ -20,8 +20,9 @@ from cs336_basics.transformer.softmax import softmax
 from cs336_basics.transformer.attention import scaled_dot_product_attention, MultiHeadSelfAttention
 from cs336_basics.transformer.transformer import prenorm_XformerBlock, Xformer_LM
 from cs336_basics.transformer.cross_entropy import cross_entropy
-from cs336_basics.transformer.AdamW import AdamW
+from cs336_basics.transformer.optimizer import AdamW
 from cs336_basics.transformer.cos_lr import learning_rate_schedule
+from cs336_basics.transformer.grad_clip import gradient_clipping
 
 
 
@@ -535,7 +536,7 @@ def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm:
 
     The gradients of the parameters (parameter.grad) should be modified in-place.
     """
-    raise NotImplementedError
+    gradient_clipping(parameters, max_l2_norm)
 
 
 def get_adamw_cls() -> type[torch.optim.Optimizer]:
