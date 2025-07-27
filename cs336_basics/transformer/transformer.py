@@ -80,5 +80,70 @@ class Xformer_LM(torch.nn.Module):
         x = self.linear_layer(x)
         # return softmax(x)
         return x
-        
+      
 
+def decode(self,
+        prompt: torch.Tensor,
+        max_gen_tokens: int,
+        tau: float = 1.0,
+        top_p: float = 0.9,
+        end_of_txt_id: int = -1
+    ):
+        """
+        Generates text auto-regressively using temperature and top-p (nucleus) sampling.
+        
+        Args:
+            prompt: The initial sequence of token_ids, shape (batch_size, seq_len).
+            max_gen_tokens: The maximum number of tokens to generate.
+            tau: The temperature for softmax scaling. Higher is more random.
+            top_p: The nucleus sampling threshold.
+            end_of_txt_id: The token_id that signals the end of generation.
+        """
+        generated = prompt
+        # We assume batch_size is 1 for this implementation
+        assert generated.shape[0] == 1, "This decode implementation only supports a batch size of 1."
+
+        for _ in range(max_gen_tokens):
+            # --- FIX: Ensure the input sequence doesn't exceed the model's context length ---
+            # Crop the context if it's too long
+            current_context = generated[:, -self.context_length:]
+
+            # Get the logits for the very last token in the sequence
+            logits = self.forward(current_context)[:, -1, :] # Shape: (1, vocab_size)
+
+            # Apply temperature scaling
+            logits = logits / tau
+            
+            # Get probabilities
+            probs = softmax(logits, dim=-1) # Shape: (1, vocab_size)
+            
+            # --- Efficient Top-p (Nucleus) Sampling ---
+            sorted_probs, sorted_indices = torch.sort(probs, descending=True, dim=-1)
+            cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+
+            # Create a mask to remove tokens with cumulative probability above the threshold
+            sorted_indices_to_remove = cumulative_probs > top_p
+            # Shift the mask to the right to keep the first token above the threshold
+            sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+            sorted_indices_to_remove[..., 0] = 0
+
+            # Create a mask for the original indices
+            indices_to_remove = torch.zeros_like(probs, dtype=torch.bool).scatter_(
+                dim=-1, index=sorted_indices, src=sorted_indices_to_remove
+            )
+
+            # Zero out the probabilities of tokens to remove
+            probs[indices_to_remove] = 0.0
+            
+            # Re-normalize the remaining probabilities
+            probs = probs / probs.sum()
+
+            next_token = torch.multinomial(probs, num_samples=1) # Shape: (1, 1)
+            # Append the new token to the sequence
+            generated = torch.cat((generated, next_token), dim=1)
+
+            # Stop if end-of-text token is generated
+            if next_token == end_of_txt_id:
+                break
+
+        return generated
